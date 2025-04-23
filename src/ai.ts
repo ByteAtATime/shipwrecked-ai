@@ -143,7 +143,7 @@ const searchSimilarQuestions = async (query: string, limit = 3) => {
 export async function answerQuestion(question: string): Promise<{
   answer: string;
   hasAnswer: boolean;
-  sources?: Array<{ question: string; answer: string; citations: string[] }>;
+  sources?: string[];
 }> {
   const tools: Tool[] = [
     {
@@ -184,7 +184,7 @@ export async function answerQuestion(question: string): Promise<{
         role: "system",
         content: `You are an AI assistant that can answer questions based on a knowledge base. You have access to a vector database of question-answer pairs. Use the search_similar_questions tool to find relevant information before answering. Always cite your sources. All of your answers must be directly from the search results; if you are even a little unsure, return <no-answer></no-answer>.
 
-When you are finished, YOU MUST respond in the following format:
+When you are finished, YOU MUST respond in the following format. Answers may be in markdown:
 
 <answer>{answer}</answer>
 

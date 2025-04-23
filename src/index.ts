@@ -23,58 +23,58 @@ const app = new App({
   appToken: Bun.env["SLACK_APP_TOKEN"],
 });
 
-const previousMessages = await app.client.conversations.history({
-  channel: "C08Q1CNLMQ8",
-});
+// const previousMessages = await app.client.conversations.history({
+//   channel: "C08Q1CNLMQ8",
+// });
 
-for (const msg of previousMessages.messages ?? []) {
-  if (msg.reactions && msg.reactions.length > 0) {
-    if (msg.reactions.some((r) => r.name === "white_check_mark")) {
-      if (!msg.ts) continue;
+// for (const msg of previousMessages.messages ?? []) {
+//   if (msg.reactions && msg.reactions.length > 0) {
+//     if (msg.reactions.some((r) => r.name === "white_check_mark")) {
+//       if (!msg.ts) continue;
 
-      const replies = await app.client.conversations.replies({
-        channel: "C08Q1CNLMQ8",
-        ts: msg.ts,
-      });
+//       const replies = await app.client.conversations.replies({
+//         channel: "C08Q1CNLMQ8",
+//         ts: msg.ts,
+//       });
 
-      const thread = replies.messages;
-      if (!thread) continue;
+//       const thread = replies.messages;
+//       if (!thread) continue;
 
-      const qas = await parseQAs(thread);
-      if (!qas || qas.length === 0) continue;
+//       const qas = await parseQAs(thread);
+//       if (!qas || qas.length === 0) continue;
 
-      for (const qa of qas) {
-        const embedding = await generateEmbedding(qa.question);
-        if (!embedding) continue;
+//       for (const qa of qas) {
+//         const embedding = await generateEmbedding(qa.question);
+//         if (!embedding) continue;
 
-        const question = qa.question;
-        const answer = qa.answer;
-        const citations = qa.citations;
+//         const question = qa.question;
+//         const answer = qa.answer;
+//         const citations = qa.citations;
 
-        const citationIds = await Promise.all(
-          citations.map(
-            async (c) =>
-              (
-                await web.chat.getPermalink({
-                  channel: "C08Q1CNLMQ8",
-                  message_ts: thread[c - 1]!.ts!,
-                })
-              ).permalink!
-          )
-        );
+//         const citationIds = await Promise.all(
+//           citations.map(
+//             async (c) =>
+//               (
+//                 await web.chat.getPermalink({
+//                   channel: "C08Q1CNLMQ8",
+//                   message_ts: thread[c - 1]!.ts!,
+//                 })
+//               ).permalink!
+//           )
+//         );
 
-        await db.insert(questionsTable).values({
-          question,
-          answer,
-          citations: citationIds,
-          embedding,
-        });
-      }
-    }
-  }
-}
+//         await db.insert(questionsTable).values({
+//           question,
+//           answer,
+//           citations: citationIds,
+//           embedding,
+//         });
+//       }
+//     }
+//   }
+// }
 
-app.event("message", async ({ event, client }) => {
+app.event("message", async ({ event, say, client }) => {
   if (event.channel !== "C08Q1CNLMQ8") return;
   if (event.type !== "message") return;
 
@@ -84,9 +84,36 @@ app.event("message", async ({ event, client }) => {
   const text = extractPlaintextFromMessage({ blocks: event.blocks ?? [] });
   if (!text || text.length === 0) return;
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [{ role: "user", content: text }],
+  console.log(text);
+
+  const answer = await answerQuestion(text);
+  console.log(answer);
+  if (!answer.hasAnswer) return;
+
+  await client.chat.postMessage({
+    channel: event.channel,
+    thread_ts: event.ts,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: answer.answer,
+        },
+      },
+      {
+        type: "divider",
+      },
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `Sources: ${answer.sources
+            ?.map((s, i) => `[#${i + 1}](${s})`)
+            .join(" ")}`,
+        },
+      },
+    ],
   });
 });
 
