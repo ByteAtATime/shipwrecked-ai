@@ -1,0 +1,16 @@
+{
+  "name": "shipwrecked-ai",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@slack/web-api": "^7.9.1",
+    "openai": "^4.96.0"
+  }
+}
