@@ -12,6 +12,7 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@slack/bolt": "^4.2.1",
     "@slack/web-api": "^7.9.1",
     "dotenv": "^16.5.0",
     "drizzle-orm": "^0.42.0",

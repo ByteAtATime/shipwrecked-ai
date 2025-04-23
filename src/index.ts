@@ -1,8 +1,14 @@
-import { WebClient } from "@slack/web-api";
-import { formatThread, parseQAs } from "./ai";
+import {
+  WebClient,
+  type AllMessageEvents,
+  type GenericMessageEvent,
+} from "@slack/web-api";
+import { answerQuestion, formatThread, parseQAs } from "./ai";
 import { generateEmbedding } from "./embedding";
 import { db } from "./db";
 import { questionsTable } from "./schema";
+import { App } from "@slack/bolt";
+import { extractPlaintextFromMessage } from "./utils";
 
 const token = Bun.env["SLACK_TOKEN"];
 
@@ -10,9 +16,14 @@ if (!token) {
   throw new Error("SLACK_TOKEN is not set");
 }
 
-const web = new WebClient(token);
+const app = new App({
+  token,
+  signingSecret: Bun.env["SLACK_SIGNING_SECRET"],
+  socketMode: true,
+  appToken: Bun.env["SLACK_APP_TOKEN"],
+});
 
-const previousMessages = await web.conversations.history({
+const previousMessages = await app.client.conversations.history({
   channel: "C08Q1CNLMQ8",
 });
 
@@ -21,7 +32,7 @@ for (const msg of previousMessages.messages ?? []) {
     if (msg.reactions.some((r) => r.name === "white_check_mark")) {
       if (!msg.ts) continue;
 
-      const replies = await web.conversations.replies({
+      const replies = await app.client.conversations.replies({
         channel: "C08Q1CNLMQ8",
         ts: msg.ts,
       });
@@ -62,3 +73,22 @@ for (const msg of previousMessages.messages ?? []) {
     }
   }
 }
+
+app.event("message", async ({ event, client }) => {
+  if (event.channel !== "C08Q1CNLMQ8") return;
+  if (event.type !== "message") return;
+
+  event = event as GenericMessageEvent;
+
+  // TODO: fix type
+  const text = extractPlaintextFromMessage({ blocks: event.blocks ?? [] });
+  if (!text || text.length === 0) return;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [{ role: "user", content: text }],
+  });
+});
+
+await app.start();
+app.logger.info("⚡️ Bolt app is running on port 3000");
