@@ -79,7 +79,7 @@ const storeThread = async (thread: MessageElement[]) => {
 app.event("message", async ({ event, say, client }) => {
   if (event.channel !== "C08Q1CNLMQ8") return;
   if (event.type !== "message") return;
-  if (event.ts !== event.event_ts) return; // top-level message
+  if ("thread_ts" in event) return; // ignore thread replies
 
   event = event as GenericMessageEvent;
 
