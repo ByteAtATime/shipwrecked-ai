@@ -19,6 +19,34 @@ const openai = new OpenAI({
   },
 });
 
+// Function to determine if text is a question using AI
+async function isQuestionAI(text: string): Promise<boolean> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "google/gemini-2.0-flash-001",
+      messages: [
+        {
+          role: "system",
+          content:
+            "Determine if the following text is a question that requires information. Respond with only 'true' or 'false'.",
+        },
+        {
+          role: "user",
+          content: text,
+        },
+      ],
+      temperature: 0.1,
+    });
+
+    const result = response.choices[0]?.message.content?.trim().toLowerCase();
+    return result === "true";
+  } catch (error) {
+    console.error("Error determining if text is a question:", error);
+    // Default to treating it as a question if there's an error
+    return true;
+  }
+}
+
 export type QuestionAnswerPair = {
   question: string;
   answer: string;
@@ -188,7 +216,8 @@ export async function answerQuestion(question: string): Promise<{
         role: "system",
         content: `You are an AI assistant that can answer questions based on a knowledge base. You have access to a vector database of question-answer pairs. Use the search_similar_questions tool to find relevant information before answering. Always cite your sources. All of your answers must be directly from the search results; if you are even a little unsure, return <no-answer></no-answer>. Take note of the questions that the vector database provides, along with the confidence scores.
 
-Context: this is an event called Shipwrecked, which is run by Hack Club.
+IMPORTANT: First determine if the user's input is a question that requires information. If it's not a question (e.g., it's a greeting, statement, command, or other non-question), respond with:
+<not-question></not-question>
 
 When you are finished, YOU MUST respond in the following format. Answers may be in markdown:
 
@@ -210,7 +239,7 @@ If you cannot find an answer, respond with:
 
     while (currentAttempt < maxAttempts) {
       const response = await openai.chat.completions.create({
-        model: "google/gemini-2.0-flash-exp:free",
+        model: "google/gemini-2.0-flash-001",
         messages,
         tools: toolDefinitions,
         tool_choice: currentAttempt === 0 ? "required" : "auto",
@@ -221,6 +250,14 @@ If you cannot find an answer, respond with:
       if (!responseMessage) {
         return {
           answer: "I couldn't process your question. Please try again.",
+          hasAnswer: false,
+        };
+      }
+
+      if (responseMessage.content?.trim().includes("<not-question>")) {
+        console.log("No question found");
+        return {
+          answer: "No question found",
           hasAnswer: false,
         };
       }
@@ -247,7 +284,7 @@ If you cannot find an answer, respond with:
         }
       } else if (responseMessage.content?.trim()) {
         if (responseMessage.content.trim().includes("<no-answer>")) {
-          const noAnswerRegex = /<no-answer>(.*?)<\/no-answer>/;
+          const noAnswerRegex = /<no-answer>(.*?)<\/no-answer>/s;
           const match = responseMessage.content.trim().match(noAnswerRegex);
 
           const noAnswerReason = match?.[1]?.trim() ?? "";
@@ -258,7 +295,7 @@ If you cannot find an answer, respond with:
           };
         } else {
           const responseFormatRegex =
-            /<answer>((.|\s)*?)<\/answer>\s*<sources>((.|\s)*?)<\/sources>/;
+            /<answer>((.|\s)*?)<\/answer>\s*<sources>((.|\s)*?)<\/sources>/s;
           const match = responseMessage.content
             .trim()
             .match(responseFormatRegex);
