@@ -31,7 +31,7 @@ export const parseQAs = async (thread: MessageElement[]) => {
       {
         role: "system",
         content:
-          "You are a Slack thread parser for a help desk. Given a Slack thread, extract question/answer pairs. You must paraphrase the questions and answers, but give citations to the answers in the form of the provided message indexes.",
+          "You are a Slack thread parser for a help desk. Given a Slack thread, extract question/answer pairs. You must paraphrase the questions and answers, but give citations to the answers in the form of the provided message indexes. In the question or answer, you must not reference any other messages (you have to paraphrase them).",
       },
       {
         role: "user",
@@ -130,8 +130,11 @@ const searchSimilarQuestions = async (query: string, limit = 3) => {
         similarity,
       })
       .from(questionsTable)
+      .where(sql`${similarity} > 0.5`)
       .orderBy((t) => desc(t.similarity))
       .limit(limit);
+
+    console.log(results);
 
     return { results };
   } catch (error) {
@@ -182,7 +185,7 @@ export async function answerQuestion(question: string): Promise<{
     const messages: ChatCompletionMessageParam[] = [
       {
         role: "system",
-        content: `You are an AI assistant that can answer questions based on a knowledge base. You have access to a vector database of question-answer pairs. Use the search_similar_questions tool to find relevant information before answering. Always cite your sources. All of your answers must be directly from the search results; if you are even a little unsure, return <no-answer></no-answer>.
+        content: `You are an AI assistant that can answer questions based on a knowledge base. You have access to a vector database of question-answer pairs. Use the search_similar_questions tool to find relevant information before answering. Always cite your sources. All of your answers must be directly from the search results; if you are even a little unsure, return <no-answer></no-answer>. Take note of the questions that the vector database provides, along with the confidence scores.
 
 When you are finished, YOU MUST respond in the following format. Answers may be in markdown:
 
