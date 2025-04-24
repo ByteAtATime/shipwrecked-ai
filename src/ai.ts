@@ -8,6 +8,7 @@ import { sql, cosineDistance, desc } from "drizzle-orm";
 import type {
   ChatCompletionMessageParam,
   ChatCompletionTool,
+  ChatCompletionToolChoiceOption,
 } from "openai/resources.mjs";
 
 const openai = new OpenAI({
@@ -187,14 +188,16 @@ export async function answerQuestion(question: string): Promise<{
         role: "system",
         content: `You are an AI assistant that can answer questions based on a knowledge base. You have access to a vector database of question-answer pairs. Use the search_similar_questions tool to find relevant information before answering. Always cite your sources. All of your answers must be directly from the search results; if you are even a little unsure, return <no-answer></no-answer>. Take note of the questions that the vector database provides, along with the confidence scores.
 
+Context: this is an event called Shipwrecked, which is run by Hack Club.
+
 When you are finished, YOU MUST respond in the following format. Answers may be in markdown:
 
 <answer>{answer}</answer>
 
-<sources>["source1", "source2", "source3"]</sources>
+<sources>https://hackclub.slack.com/...,https://hackclub.slack.com/...</sources>
 
 If you cannot find an answer, respond with:
-<no-answer></no-answer>`,
+<no-answer>{what was wrong with the embedding search results}</no-answer>`,
       },
       {
         role: "user",
@@ -210,7 +213,7 @@ If you cannot find an answer, respond with:
         model: "google/gemini-2.0-flash-exp:free",
         messages,
         tools: toolDefinitions,
-        tool_choice: "auto",
+        tool_choice: currentAttempt === 0 ? "required" : "auto",
       });
 
       const responseMessage = response.choices[0]?.message;
@@ -244,20 +247,26 @@ If you cannot find an answer, respond with:
         }
       } else if (responseMessage.content?.trim()) {
         if (responseMessage.content.trim().includes("<no-answer>")) {
+          const noAnswerRegex = /<no-answer>(.*?)<\/no-answer>/;
+          const match = responseMessage.content.trim().match(noAnswerRegex);
+
+          const noAnswerReason = match?.[1]?.trim() ?? "";
+
           return {
-            answer: "I don't know",
+            answer: `I don't know\n\n${noAnswerReason}`,
             hasAnswer: false,
           };
         } else {
           const responseFormatRegex =
-            /<answer>(.*?)<\/answer>\s*<sources>(.*?)<\/sources>/;
+            /<answer>((.|\s)*?)<\/answer>\s*<sources>((.|\s)*?)<\/sources>/;
           const match = responseMessage.content
             .trim()
             .match(responseFormatRegex);
 
           if (match) {
             const answer = match[1]?.trim() ?? "";
-            const sources = JSON.parse(match[2]?.trim() ?? "[]");
+            console.log(match);
+            const sources = (match[3]?.trim() ?? "").split(",");
 
             return {
               answer,
@@ -277,6 +286,10 @@ If you cannot find an answer, respond with:
 
       currentAttempt++;
     }
+
+    // the ai hasn't found an answer after 3 attempts
+
+    console.log(messages);
 
     return {
       answer:
