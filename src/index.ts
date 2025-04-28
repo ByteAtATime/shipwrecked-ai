@@ -2,7 +2,7 @@ import { type GenericMessageEvent } from "@slack/web-api";
 import { answerQuestion, parseQAs } from "./ai";
 import { generateEmbedding } from "./embedding";
 import { db } from "./db";
-import { questionsTable } from "./schema";
+import { questionsTable, citationsTable } from "./schema";
 import { App } from "@slack/bolt";
 import { extractPlaintextFromMessage } from "./utils";
 import type { MessageElement } from "@slack/web-api/dist/types/response/ConversationsRepliesResponse";
@@ -20,8 +20,10 @@ const app = new App({
   appToken: Bun.env["SLACK_APP_TOKEN"],
 });
 
+const channelId = "C08Q1CNLMQ8";
+
 const previousMessages = await app.client.conversations.history({
-  channel: "C08Q1CNLMQ8",
+  channel: channelId,
 });
 
 const storeThread = async (thread: MessageElement[]) => {
@@ -36,22 +38,66 @@ const storeThread = async (thread: MessageElement[]) => {
     const answer = qa.answer;
     const citations = qa.citations;
 
-    const citationIds = await Promise.all(
-      citations.map(
-        async (c) =>
-          (
-            await app.client.chat.getPermalink({
-              channel: "C08Q1CNLMQ8",
-              message_ts: thread[c - 1]!.ts!,
-            })
-          ).permalink!
-      )
-    );
+    // Store citation content and get citation IDs
+    const citationIds = [];
 
+    for (const c of citations) {
+      const messageIndex = c - 1;
+      if (!thread[messageIndex] || !thread[messageIndex].ts) continue;
+
+      const message = thread[messageIndex];
+      const messageTs = message.ts!;
+      const content = extractPlaintextFromMessage(message as any);
+
+      // Get username from either the real_name, name, or user_id
+      let username = "Unknown User";
+      if (message.user) {
+        try {
+          // Try to get user info
+          const userInfo = await app.client.users.info({
+            user: message.user,
+          });
+
+          if (userInfo.user) {
+            username =
+              userInfo.user.real_name || userInfo.user.name || message.user;
+          } else {
+            username = message.user;
+          }
+        } catch (error) {
+          console.error("Error fetching user info:", error);
+          username = message.user;
+        }
+      }
+
+      const permalinkRes = await app.client.chat.getPermalink({
+        channel: channelId,
+        message_ts: messageTs,
+      });
+
+      const permalink = permalinkRes.permalink!;
+
+      // Insert citation into citations table
+      const [citationRecord] = await db
+        .insert(citationsTable)
+        .values({
+          permalink,
+          content: content || "No content available",
+          timestamp: messageTs,
+          username,
+        })
+        .returning({ id: citationsTable.id });
+
+      if (citationRecord) {
+        citationIds.push(citationRecord.id);
+      }
+    }
+
+    // Insert question with citation IDs
     await db.insert(questionsTable).values({
       question,
       answer,
-      citations: citationIds,
+      citationIds,
       embedding,
     });
 
@@ -64,7 +110,7 @@ const storeThread = async (thread: MessageElement[]) => {
 //       if (!msg.ts) continue;
 
 //       const replies = await app.client.conversations.replies({
-//         channel: "C08Q1CNLMQ8",
+//         channel: channelId,
 //         ts: msg.ts,
 //       });
 
@@ -77,14 +123,16 @@ const storeThread = async (thread: MessageElement[]) => {
 // }
 
 app.event("message", async ({ event, say, client }) => {
-  if (event.channel !== "C08Q1CNLMQ8") return;
+  if (event.channel !== channelId) return;
   if (event.type !== "message") return;
   if ("thread_ts" in event) return; // ignore thread replies
 
   event = event as GenericMessageEvent;
 
   // TODO: fix type
-  const text = extractPlaintextFromMessage({ blocks: event.blocks ?? [] });
+  const text = extractPlaintextFromMessage({
+    blocks: event.blocks ?? [],
+  } as any);
   if (!text || text.length === 0) return;
 
   const answer = await answerQuestion(text);
@@ -97,11 +145,8 @@ app.event("message", async ({ event, say, client }) => {
     text: answer.answer,
     blocks: [
       {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: answer.answer,
-        },
+        type: "markdown",
+        text: answer.answer,
       },
       {
         type: "divider",
@@ -121,11 +166,11 @@ app.event("message", async ({ event, say, client }) => {
 
 app.event("reaction_added", async ({ event, client }) => {
   console.log(event);
-  if (event.item.channel !== "C08Q1CNLMQ8") return;
+  if (event.item.channel !== channelId) return;
   if (event.reaction !== "white_check_mark") return;
 
   const replies = await client.conversations.replies({
-    channel: "C08Q1CNLMQ8",
+    channel: channelId,
     ts: event.item.ts,
   });
 
