@@ -5,11 +5,15 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "bun --cwd packages/bot run dev",
-    "start": "bun --cwd packages/bot run start",
-    "db:generate": "bun --cwd packages/bot run db:generate",
-    "db:migrate": "bun --cwd packages/bot run db:migrate",
-    "db:studio": "bun --cwd packages/bot run db:studio"
+    "dev": "bun run --filter @shipwrecked-ai/bot dev",
+    "start": "bun run --filter @shipwrecked-ai/bot start",
+    "db:generate": "bun run --filter @shipwrecked-ai/bot db:generate",
+    "db:migrate": "bun run --filter @shipwrecked-ai/bot db:migrate",
+    "db:studio": "bun run --filter @shipwrecked-ai/bot db:studio",
+    "web:dev": "bun run --filter @shipwrecked-ai/web dev",
+    "web:build": "bun run --filter @shipwrecked-ai/web build",
+    "web:preview": "bun run --filter @shipwrecked-ai/web preview",
+    "web:check": "bun run --filter @shipwrecked-ai/web check"
   },
   "devDependencies": {
     "typescript": "^5"
