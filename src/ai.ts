@@ -35,6 +35,22 @@ Guidelines:
 - Skip unclear questions
 - Keep responses concise
 - Omit questions when in doubt
+
+Return format:
+{
+  "qa_pairs": [
+    {
+      "question": "The paraphrased question",
+      "answer": "The paraphrased answer",
+      "citations": [1, 2, 3]
+    }
+  ]
+}
+
+If you do not find any question/answer pairs, return:
+{
+  "qa_pairs": []
+}
 `.trim(),
       },
       {
