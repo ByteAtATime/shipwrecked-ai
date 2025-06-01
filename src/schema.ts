@@ -7,6 +7,7 @@ import {
   vector,
   timestamp,
   foreignKey,
+  halfvec,
 } from "drizzle-orm/pg-core";
 
 export const citationsTable = pgTable("citations", {
@@ -21,7 +22,7 @@ export const questionsTable = pgTable(
   "questions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    embedding: vector("embedding", { dimensions: 1536 }),
+    embedding: halfvec("embedding", { dimensions: 3072 }),
     question: text("question").notNull(),
     answer: text("answer").notNull(),
     citationIds: uuid("citation_ids").array(),
@@ -29,7 +30,7 @@ export const questionsTable = pgTable(
   (table) => [
     index("embeddingIndex").using(
       "hnsw",
-      table.embedding.op("vector_cosine_ops")
+      table.embedding.op("halfvec_cosine_ops")
     ),
   ]
 );

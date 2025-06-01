@@ -1,14 +1,22 @@
-import OpenAI from "openai";
+const GEMINI_API_KEY = Bun.env["GEMINI_API_KEY"];
 
-const embeddingsClient = new OpenAI({
-    apiKey: Bun.env["OPENAI_API_KEY"],
-});
+if (!GEMINI_API_KEY) {
+  throw new Error("GEMINI_API_KEY is not set");
+}
 
 export const generateEmbedding = async (text: string) => {
-    const response = await embeddingsClient.embeddings.create({
-        input: text,
-        model: 'text-embedding-3-small'
-    });
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-exp-03-07:embedContent?key=${GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        model: "models/gemini-embedding-exp-03-07",
+        content: { parts: [{ text }] },
+      }),
+    }
+  );
 
-    return response.data[0]?.embedding;
-}
+  const data = (await response.json()) as { embedding: { values: number[] } };
+
+  return data.embedding.values;
+};
