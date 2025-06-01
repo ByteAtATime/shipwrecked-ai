@@ -118,6 +118,18 @@ class APIClient {
     });
     return result;
   }
+
+  async answerQuestion(question: string): Promise<{
+    answer: string;
+    hasAnswer: boolean;
+    sources?: string[];
+  }> {
+    const result = await this.request("/api/ai/answer", {
+      method: "POST",
+      body: JSON.stringify({ question }),
+    });
+    return result;
+  }
 }
 
 export const apiClient = new APIClient();
