@@ -3,6 +3,12 @@
   "workspaces": {
     "": {
       "name": "shipwrecked-ai",
+      "devDependencies": {
+        "typescript": "^5",
+      },
+    },
+    "packages/bot": {
+      "name": "@shipwrecked-ai/bot",
       "dependencies": {
         "@slack/bolt": "^4.2.1",
         "@slack/web-api": "^7.9.1",
@@ -12,7 +18,7 @@
         "pg": "^8.15.2",
       },
       "devDependencies": {
-        "@types/bun": "latest",
+        "@types/bun": "^1.2.10",
         "@types/pg": "^8.11.13",
         "drizzle-kit": "^0.31.0",
       },
@@ -77,6 +83,8 @@
     "@esbuild/win32-ia32": ["@esbuild/win32-ia32@0.25.3", "", { "os": "win32", "cpu": "ia32" }, "sha512-qspTZOIGoXVS4DpNqUYUs9UxVb04khS1Degaw/MnfMe7goQ3lTfQ13Vw4qY/Nj0979BGvMRpAYbs/BAxEvU8ew=="],
 
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.25.3", "", { "os": "win32", "cpu": "x64" }, "sha512-ICgUR+kPimx0vvRzf+N/7L7tVSQeE3BYY+NhHRHXS1kBuPO7z2+7ea2HbhDyZdTephgvNvKrlDDKUexuCVBVvg=="],
+
+    "@shipwrecked-ai/bot": ["@shipwrecked-ai/bot@workspace:packages/bot"],
 
     "@slack/bolt": ["@slack/bolt@4.2.1", "", { "dependencies": { "@slack/logger": "^4.0.0", "@slack/oauth": "^3.0.2", "@slack/socket-mode": "^2.0.3", "@slack/types": "^2.13.0", "@slack/web-api": "^7.8.0", "axios": "^1.7.8", "express": "^5.0.0", "path-to-regexp": "^8.1.0", "raw-body": "^3", "tsscmp": "^1.0.6" }, "peerDependencies": { "@types/express": "^5.0.0" } }, "sha512-O+c7i5iZKlxt6ltJAu2BclEoyWuAVkcpir1F3HWCHTez8Pjz0GxwdBzNHR5HDXvOdBT7En1BU0T2L6Ldv++GSg=="],
 
