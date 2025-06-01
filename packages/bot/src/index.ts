@@ -1,8 +1,7 @@
 import { type GenericMessageEvent } from "@slack/web-api";
 import { answerQuestion, parseQAs } from "./ai";
 import { generateEmbedding } from "./embedding";
-import { db } from "./db";
-import { questionsTable, citationsTable } from "./schema";
+import { apiClient } from "./api-client";
 import { App } from "@slack/bolt";
 import { extractPlaintextFromMessage } from "./utils";
 import type { MessageElement } from "@slack/web-api/dist/types/response/ConversationsRepliesResponse";
@@ -77,24 +76,21 @@ const storeThread = async (thread: MessageElement[]) => {
 
       const permalink = permalinkRes.permalink!;
 
-      // Insert citation into citations table
-      const [citationRecord] = await db
-        .insert(citationsTable)
-        .values({
-          permalink,
-          content: content || "No content available",
-          timestamp: messageTs,
-          username,
-        })
-        .returning({ id: citationsTable.id });
+      // Insert citation using API
+      const citationRecord = await apiClient.createCitation({
+        permalink,
+        content: content || "No content available",
+        timestamp: messageTs,
+        username,
+      });
 
       if (citationRecord) {
         citationIds.push(citationRecord.id);
       }
     }
 
-    // Insert question with citation IDs
-    await db.insert(questionsTable).values({
+    // Insert question using API
+    await apiClient.createQuestion({
       question,
       answer,
       citationIds,

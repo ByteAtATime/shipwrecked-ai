@@ -1,22 +1,38 @@
-import type { MessageElement } from "@slack/web-api/dist/types/response/ConversationsHistoryResponse";
+import { json } from "@sveltejs/kit";
+import type { RequestHandler } from "./$types";
 import OpenAI from "openai";
-import { formatThread } from "./utils";
-import { generateEmbedding } from "./embedding";
-import { apiClient } from "./api-client";
-import type { ChatCompletionMessageParam } from "openai/resources.mjs";
+import { db } from "$lib/server/db";
+import { questionsTable, citationsTable } from "$lib/server/db/schema";
+import { sql, cosineDistance, desc } from "drizzle-orm";
 
 const openai = new OpenAI({
   baseURL: "https://ai.hackclub.com",
 });
 
-export type QuestionAnswerPair = {
-  question: string;
-  answer: string;
-  citations: number[];
-};
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-export const parseQAs = async (thread: MessageElement[]) => {
-  return apiClient.parseQAs(thread);
+if (!GEMINI_API_KEY) {
+  throw new Error("GEMINI_API_KEY is not set");
+}
+
+const generateEmbedding = async (text: string) => {
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-exp-03-07:embedContent?key=${GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        model: "models/gemini-embedding-exp-03-07",
+        content: { parts: [{ text }] },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to generate embedding: ${response.statusText}`);
+  }
+
+  const data = (await response.json()) as { embedding: { values: number[] } };
+  return data.embedding.values;
 };
 
 const searchSimilarQuestions = async (query: string, limit = 3) => {
@@ -27,29 +43,75 @@ const searchSimilarQuestions = async (query: string, limit = 3) => {
       return { error: "Failed to generate embedding for query" };
     }
 
-    const searchResult = await apiClient.searchSimilarQuestions(
-      queryEmbedding,
-      limit
+    const similarity = sql<number>`1 - (${cosineDistance(
+      questionsTable.embedding,
+      queryEmbedding
+    )})`;
+
+    const results = await db
+      .select({
+        id: questionsTable.id,
+        question: questionsTable.question,
+        answer: questionsTable.answer,
+        citationIds: questionsTable.citationIds,
+        similarity,
+      })
+      .from(questionsTable)
+      .where(sql`${similarity} > 0.5`)
+      .orderBy((t) => desc(t.similarity))
+      .limit(limit);
+
+    const enhancedResults = await Promise.all(
+      results.map(async (result) => {
+        const citationDetails = [];
+
+        if (result.citationIds && result.citationIds.length > 0) {
+          const citationRecords = await db
+            .select({
+              id: citationsTable.id,
+              permalink: citationsTable.permalink,
+              content: citationsTable.content,
+              timestamp: citationsTable.timestamp,
+              username: citationsTable.username,
+            })
+            .from(citationsTable)
+            .where(sql`${citationsTable.id} IN ${result.citationIds}`);
+
+          for (const citation of citationRecords) {
+            citationDetails.push({
+              permalink: citation.permalink,
+              content: citation.content || "No content available",
+              timestamp: citation.timestamp || "",
+              username: citation.username || "Unknown User",
+            });
+          }
+        }
+
+        return {
+          ...result,
+          citationDetails,
+        };
+      })
     );
 
-    console.log(searchResult.results);
-
-    return searchResult;
+    return { results: enhancedResults };
   } catch (error) {
     console.error("Error searching similar questions:", error);
     return { error: "Failed to search database" };
   }
 };
 
-export async function answerQuestion(question: string): Promise<{
-  answer: string;
-  hasAnswer: boolean;
-  sources?: string[];
-}> {
+export const POST: RequestHandler = async ({ request }) => {
   try {
-    const messages: ChatCompletionMessageParam[] = [
+    const { question } = await request.json();
+
+    if (!question) {
+      return json({ error: "Question is required" }, { status: 400 });
+    }
+
+    const messages = [
       {
-        role: "system",
+        role: "system" as const,
         content: `You are an AI assistant that can answer questions based on a knowledge base. You have access to a vector database of question-answer pairs. All of your answers must be directly from the search results; if you are even a little unsure, return a response with type: "no_answer". 
 
 IMPORTANT: First determine if the user's input is a question that requires information. If it's not a question (e.g., it's a greeting, statement, command, or other non-question), return a response with type: "not_question".
@@ -91,7 +153,7 @@ Example answer format with citation content and username:
 }`,
       },
       {
-        role: "user",
+        role: "user" as const,
         content: question,
       },
     ];
@@ -109,32 +171,31 @@ Example answer format with citation content and username:
       const responseMessage = response.choices[0]?.message;
 
       if (!responseMessage || !responseMessage.content?.trim()) {
-        return {
+        return json({
           answer: "I couldn't process your question. Please try again.",
           hasAnswer: false,
-        };
+        });
       }
 
       try {
         const parsedResponse = JSON.parse(responseMessage.content.trim());
 
         if (parsedResponse.type === "not_question") {
-          console.log("No question found");
-          return {
+          return json({
             answer: "No question found",
             hasAnswer: false,
-          };
+          });
         } else if (parsedResponse.type === "no_answer") {
-          return {
+          return json({
             answer: `I don't know\n\n${parsedResponse.reason || ""}`,
             hasAnswer: false,
-          };
+          });
         } else if (parsedResponse.type === "answer") {
-          return {
+          return json({
             answer: parsedResponse.content || "",
             hasAnswer: true,
             sources: parsedResponse.sources || [],
-          };
+          });
         } else if (parsedResponse.type === "search_similar_questions") {
           const searchQuery = parsedResponse.query || question;
           const searchLimit = parsedResponse.limit || 3;
@@ -147,31 +208,28 @@ Example answer format with citation content and username:
           if (searchResult.results && searchResult.results.length > 0) {
             messages.push(responseMessage);
             messages.push({
-              role: "user",
+              role: "user" as const,
               content: JSON.stringify(searchResult),
             });
           } else {
-            // No results found
-            return {
+            return json({
               answer:
                 "I couldn't find any relevant information for your question.",
               hasAnswer: false,
-            };
+            });
           }
         } else {
-          // Unrecognized response type
           messages.push(responseMessage);
           messages.push({
-            role: "user",
+            role: "user" as const,
             content:
               "You didn't respond in the correct JSON format. Please try again.",
           });
         }
       } catch (e) {
-        // Failed to parse JSON
         messages.push(responseMessage);
         messages.push({
-          role: "user",
+          role: "user" as const,
           content: "You didn't respond with valid JSON. Please try again.",
         });
       }
@@ -179,20 +237,13 @@ Example answer format with citation content and username:
       currentAttempt++;
     }
 
-    // the ai hasn't found an answer after 3 attempts
-    console.log(messages);
-
-    return {
+    return json({
       answer:
         "I couldn't find a relevant answer to your question after multiple attempts.",
       hasAnswer: false,
-    };
+    });
   } catch (error) {
     console.error("Error answering question:", error);
-    return {
-      answer:
-        "I encountered an error while trying to answer your question. Please try again later.",
-      hasAnswer: false,
-    };
+    return json({ error: "Failed to answer question" }, { status: 500 });
   }
-}
+};
