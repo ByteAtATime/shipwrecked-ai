@@ -4,6 +4,7 @@ import OpenAI from "openai";
 
 const openai = new OpenAI({
   baseURL: "https://ai.hackclub.com",
+  apiKey: "",
 });
 
 export type QuestionAnswerPair = {
