@@ -15,10 +15,12 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "drizzle-orm": "^0.42.0",
-    "pg": "^8.15.2",
+    "better-auth": "^1.2.8",
     "dotenv": "^16.5.0",
-    "openai": "^4.96.0"
+    "drizzle-orm": "^0.42.0",
+    "openai": "^4.96.0",
+    "pg": "^8.15.2",
+    "postgres": "^3.4.7"
   },
   "devDependencies": {
     "@lucide/svelte": "^0.511.0",
