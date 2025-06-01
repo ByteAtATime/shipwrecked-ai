@@ -8,6 +8,7 @@ import { GEMINI_API_KEY } from "$env/static/private";
 
 const openai = new OpenAI({
   baseURL: "https://ai.hackclub.com",
+  apiKey: "",
 });
 
 const generateEmbedding = async (text: string) => {
