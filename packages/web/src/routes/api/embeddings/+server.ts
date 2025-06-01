@@ -1,11 +1,6 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
-
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-
-if (!GEMINI_API_KEY) {
-  throw new Error("GEMINI_API_KEY is not set");
-}
+import { GEMINI_API_KEY } from "$env/static/private";
 
 export const POST: RequestHandler = async ({ request }) => {
   try {

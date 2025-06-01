@@ -23,7 +23,9 @@ class APIClient {
 
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(`API request failed: ${response.status} ${error}`);
+      throw new Error(
+        `API request to ${endpoint} failed: ${response.status} ${error}`
+      );
     }
 
     return response.json();
@@ -110,12 +112,10 @@ class APIClient {
       }>;
     }>;
   }> {
-    const result = await this.request(
-      `/api/questions?embedding=${encodeURIComponent(
-        JSON.stringify(embedding)
-      )}&limit=${limit}`,
-      { method: "GET" }
-    );
+    const result = await this.request(`/api/questions/search`, {
+      method: "POST",
+      body: JSON.stringify({ embedding, limit }),
+    });
     return result;
   }
 }
