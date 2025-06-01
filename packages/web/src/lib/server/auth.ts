@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { db } from "./db";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { genericOAuth } from "better-auth/plugins";
+import { genericOAuth, organization } from "better-auth/plugins";
 import { env } from "$env/dynamic/private";
 
 export const auth = betterAuth({
@@ -19,6 +19,15 @@ export const auth = betterAuth({
           scopes: ["openid", "email", "profile"],
         },
       ],
+    }),
+    organization({
+      allowUserToCreateOrganization: true,
+      organizationLimit: 5,
+      creatorRole: "owner",
+      membershipLimit: 100,
+      invitationExpiresIn: 48 * 60 * 60,
+      cancelPendingInvitationsOnReInvite: true,
+      invitationLimit: 100,
     }),
   ],
 });
