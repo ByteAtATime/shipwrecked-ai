@@ -4,16 +4,11 @@ import OpenAI from "openai";
 import { db } from "$lib/server/db";
 import { questionsTable, citationsTable } from "$lib/server/db/schema";
 import { sql, cosineDistance, desc } from "drizzle-orm";
+import { GEMINI_API_KEY } from "$env/static/private";
 
 const openai = new OpenAI({
   baseURL: "https://ai.hackclub.com",
 });
-
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-
-if (!GEMINI_API_KEY) {
-  throw new Error("GEMINI_API_KEY is not set");
-}
 
 const generateEmbedding = async (text: string) => {
   const response = await fetch(
