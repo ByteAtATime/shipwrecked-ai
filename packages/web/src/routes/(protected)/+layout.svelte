@@ -69,6 +69,14 @@
                 </div>
               </DropdownMenu.Label>
               <DropdownMenu.Separator />
+              <DropdownMenu.Item
+                onclick={() => goto("/admin")}
+                class="cursor-pointer gap-2"
+              >
+                <Settings class="h-4 w-4" />
+                Admin Panel
+              </DropdownMenu.Item>
+              <DropdownMenu.Separator />
               <DropdownMenu.Item onclick={signOut} class="cursor-pointer">
                 <LogOut class="h-4 w-4" />
                 Sign out

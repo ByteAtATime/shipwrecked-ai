@@ -191,7 +191,11 @@
           </Card.Description>
         </Card.Header>
         <Card.Content>
-          <div class="flex gap-4">
+          <div class="flex flex-wrap gap-4">
+            <Button href="/admin/organization" variant="outline" class="gap-2">
+              <Settings class="h-4 w-4" />
+              Organization Settings
+            </Button>
             <Button href="/admin/api-keys" variant="outline" class="gap-2">
               <Key class="h-4 w-4" />
               API Keys

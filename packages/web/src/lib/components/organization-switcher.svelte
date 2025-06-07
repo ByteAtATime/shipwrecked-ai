@@ -87,7 +87,10 @@
     {/if}
 
     <DropdownMenu.Separator />
-    <DropdownMenu.Item class="gap-2">
+    <DropdownMenu.Item
+      class="gap-2 cursor-pointer"
+      onclick={() => (window.location.href = "/create-organization")}
+    >
       <Plus class="h-4 w-4" />
       Create Organization
     </DropdownMenu.Item>
