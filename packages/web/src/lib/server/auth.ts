@@ -1,7 +1,7 @@
 import { betterAuth, type Session } from "better-auth";
 import { db } from "./db";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { genericOAuth, organization } from "better-auth/plugins";
+import { genericOAuth, organization, apiKey } from "better-auth/plugins";
 import { env } from "$env/dynamic/private";
 import { v4 as uuidv4 } from "uuid";
 import { eq } from "drizzle-orm";
@@ -104,6 +104,14 @@ export const auth = betterAuth({
       invitationLimit: 100,
       async sendInvitationEmail(data, request) {
         console.log(data, request);
+      },
+    }),
+    apiKey({
+      apiKeyHeaders: ["x-api-key"],
+      rateLimit: {
+        enabled: true,
+        timeWindow: 1000 * 60 * 60 * 24,
+        maxRequests: 1000,
       },
     }),
   ],

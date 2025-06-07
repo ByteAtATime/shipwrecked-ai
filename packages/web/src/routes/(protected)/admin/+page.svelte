@@ -18,6 +18,7 @@
     Mail,
     Settings,
     Trash2,
+    Key,
   } from "@lucide/svelte";
   import { untrack } from "svelte";
   import type { Invitation, Member, Organization } from "better-auth/plugins";
@@ -182,6 +183,23 @@
     </div>
   {:else}
     <div class="grid gap-6">
+      <Card.Root>
+        <Card.Header>
+          <Card.Title>Admin Tools</Card.Title>
+          <Card.Description>
+            Quick access to administrative functions
+          </Card.Description>
+        </Card.Header>
+        <Card.Content>
+          <div class="flex gap-4">
+            <Button href="/admin/api-keys" variant="outline" class="gap-2">
+              <Key class="h-4 w-4" />
+              API Keys
+            </Button>
+          </div>
+        </Card.Content>
+      </Card.Root>
+
       <!-- Organization Overview -->
       <Card.Root>
         <Card.Header>
