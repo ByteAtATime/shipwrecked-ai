@@ -4,6 +4,7 @@ import { generateEmbedding } from "./embedding";
 import { apiClient } from "./api-client";
 import { App } from "@slack/bolt";
 import { extractPlaintextFromMessage } from "./utils";
+import { processInvitations } from "./invitations";
 import type { MessageElement } from "@slack/web-api/dist/types/response/ConversationsRepliesResponse";
 
 const token = Bun.env["SLACK_TOKEN"];
@@ -176,5 +177,23 @@ app.event("reaction_added", async ({ event, client }) => {
   await storeThread(thread);
 });
 
+// Start polling for invitations every minute
+const POLL_INTERVAL = 60 * 1000; // 1 minute in milliseconds
+
+async function startInvitationPolling() {
+  console.log("Starting invitation polling every minute...");
+
+  // Process immediately on startup
+  await processInvitations(app);
+
+  // Then poll every minute
+  setInterval(async () => {
+    await processInvitations(app);
+  }, POLL_INTERVAL);
+}
+
 await app.start();
 app.logger.info("⚡️ Bolt app is running on port 3000");
+
+// Start the invitation polling
+startInvitationPolling();

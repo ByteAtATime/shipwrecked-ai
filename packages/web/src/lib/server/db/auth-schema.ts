@@ -100,4 +100,7 @@ export const invitation = pgTable("invitation", {
   inviterId: text("inviter_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
+  slackNotificationSent: boolean("slack_notification_sent")
+    .$defaultFn(() => false)
+    .notNull(),
 });

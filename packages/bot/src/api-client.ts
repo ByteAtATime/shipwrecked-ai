@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:5173";
+export const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:5173";
 
 class APIClient {
   private baseUrl: string;
@@ -127,6 +127,35 @@ class APIClient {
     const result = await this.request("/api/ai/answer", {
       method: "POST",
       body: JSON.stringify({ question }),
+    });
+    return result;
+  }
+
+  async getPendingInvitations(): Promise<
+    Array<{
+      id: string;
+      email: string;
+      role: string;
+      organizationId: string;
+      organizationName: string;
+      inviterName: string;
+      inviterEmail: string;
+      expiresAt: string;
+    }>
+  > {
+    const result = await this.request("/api/slack/invitations", {
+      method: "GET",
+    });
+    return result.invitations;
+  }
+
+  async markInvitationsAsSent(invitationIds: string[]): Promise<{
+    success: boolean;
+    updated: number;
+  }> {
+    const result = await this.request("/api/slack/invitations", {
+      method: "POST",
+      body: JSON.stringify({ invitationIds }),
     });
     return result;
   }

@@ -1,10 +1,17 @@
 <script>
+  import { dev } from "$app/environment";
   import { authClient } from "$lib/auth-client";
   import { Button } from "$lib/components/ui/button";
 
   const signIn = async () => {
     await authClient.signIn.oauth2({
       providerId: "slack",
+    });
+  };
+
+  const signInDev = async () => {
+    await authClient.signIn.social({
+      provider: "google",
     });
   };
 </script>
@@ -17,6 +24,11 @@
 
     <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
       <Button onclick={signIn} size="lg">Sign In with Slack</Button>
+      {#if dev}
+        <Button variant="outline" onclick={signInDev} size="lg">
+          Sign In with Google
+        </Button>
+      {/if}
 
       <Button variant="outline" href="/browse" size="lg">
         Browse Q&A Pairs
