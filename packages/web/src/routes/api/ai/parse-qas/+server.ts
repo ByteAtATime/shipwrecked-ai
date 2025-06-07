@@ -45,7 +45,7 @@ export const POST: RequestHandler = async ({ request }) => {
 You are a Slack thread parser for a help desk. Given a Slack thread, extract question/answer pairs.
 
 Guidelines:
-- Paraphrase questions and answers
+- Paraphrase questions and answers without referencing the index of the message
 - Cite message index for each answer
 - Omit personal/circumstantial questions
   - "My project is about ..., is this allowed?" can be either omitted, or paraphrased to "Are ... projects allowed?"
@@ -53,6 +53,8 @@ Guidelines:
 - Skip unclear questions
 - Keep responses concise
 - Omit questions when in doubt
+
+NEVER include any relative dates or times in the question or answer. You must use absolute dates, and absolute times if necessary. The current timestamp is ${new Date().toISOString()}.
 
 Return format (WITH NO OTHER TEXT):
 {
