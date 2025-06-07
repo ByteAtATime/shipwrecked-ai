@@ -54,7 +54,9 @@ You are a Slack help desk QA extractor. You are given a thread of messages from 
    - Strip ALL message metadata (user names, [#N] refs, timestamps)
    - Convert relative → absolute time:
      • Current: ${new Date().toISOString()}
-     • Example: "yesterday" → "2023-11-05"
+     • Example: "yesterday" → ${new Date(Date.now() - 1000 * 60 * 60 * 24)
+       .toISOString()
+       .slice(0, 10)}
    - Generalize personal/circumstantial queries:
      • "Can I use React for my dating app?" → "Can React be used for dating apps?"
      • Omit if not generalizable
