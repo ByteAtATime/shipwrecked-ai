@@ -46,7 +46,7 @@ You are a Slack help desk QA extractor. You are given a thread of messages from 
 
 # CORE RULES
 1. FORMATTING:
-   - Output ONLY valid JSON using this structure:
+   - Output ONLY valid JSON using this structure WITH NO EXTRA TEXT:
      { "qa_pairs": [ { "question": "...", "answer": "...", "citations": [...] } ] }
    - When no pairs found: { "qa_pairs": [] }
 
@@ -135,6 +135,8 @@ Output:
         },
       },
     });
+
+    console.log(completion.choices[0]?.message?.content);
 
     const response = JSON.parse(
       completion.choices[0]?.message?.content ?? '{"qa_pairs": []}'
