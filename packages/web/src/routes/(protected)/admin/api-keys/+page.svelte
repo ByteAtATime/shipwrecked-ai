@@ -21,14 +21,39 @@
   } from "@lucide/svelte";
   import { untrack } from "svelte";
 
+  type ApiKey = {
+    permissions: {
+      [key: string]: string[];
+    } | null;
+    id: string;
+    name: string | null;
+    start: string | null;
+    prefix: string | null;
+    userId: string;
+    refillInterval: number | null;
+    refillAmount: number | null;
+    lastRefillAt: Date | null;
+    enabled: boolean;
+    rateLimitEnabled: boolean;
+    rateLimitTimeWindow: number | null;
+    rateLimitMax: number | null;
+    requestCount: number;
+    remaining: number | null;
+    lastRequest: Date | null;
+    expiresAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+    metadata: Record<string, any> | null;
+  };
+
   const activeOrg = authClient.useActiveOrganization();
   const session = authClient.useSession();
 
-  let apiKeys: any[] = $state([]);
+  let apiKeys: ApiKey[] = $state([]);
   let isLoading = $state(true);
   let showCreateDialog = $state(false);
   let showUpdateDialog = $state(false);
-  let selectedApiKey: any = $state(null);
+  let selectedApiKey: ApiKey | null = $state(null);
 
   let newApiKeyForm = $state({
     name: "",
@@ -77,8 +102,24 @@
     }
 
     try {
-      const payload: any = {
+      const payload: {
+        metadata?: any;
+        name?: string | undefined;
+        userId?: string | undefined;
+        prefix?: string | undefined;
+        expiresIn?: number | null | undefined;
+        permissions?: Record<string, string[]> | undefined;
+        rateLimitMax?: number | undefined;
+        refillInterval?: number | undefined;
+        refillAmount?: number | undefined;
+        rateLimitEnabled?: boolean | undefined;
+        rateLimitTimeWindow?: number | undefined;
+        remaining?: number | null | undefined;
+      } = {
         name: newApiKeyForm.name,
+        metadata: {
+          organizationId: $activeOrg.data?.id,
+        },
       };
 
       if (newApiKeyForm.expiresIn) {
@@ -142,7 +183,7 @@
     };
   }
 
-  function openUpdateDialog(apiKey: any) {
+  function openUpdateDialog(apiKey: ApiKey) {
     selectedApiKey = apiKey;
     updateApiKeyForm = {
       name: apiKey.name,
@@ -297,17 +338,6 @@
                         <code class="text-xs bg-muted px-2 py-1 rounded">
                           {apiKey.start || "***"}••••••••
                         </code>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          class="h-6 w-6 p-0"
-                          onclick={() =>
-                            copyToClipboard(
-                              apiKey.start || "Cannot copy partial key"
-                            )}
-                        >
-                          <Copy class="h-3 w-3" />
-                        </Button>
                       </div>
                     </Table.Cell>
                     <Table.Cell>
