@@ -104,7 +104,8 @@ The web backend exposes these API endpoints that the bot uses:
 - `SLACK_TOKEN` - Slack bot token
 - `SLACK_SIGNING_SECRET` - Slack signing secret
 - `SLACK_APP_TOKEN` - Slack app token
-- `API_BASE_URL` - Base URL for web API (default: http://localhost:5174)
+- `API_BASE_URL` - Base URL for web API (default: http://localhost:5173)
+- `API_KEY` - API key for authenticating with the web API (required)
 
 ### Web Package
 

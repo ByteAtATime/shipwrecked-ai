@@ -1,6 +1,7 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import OpenAI from "openai";
+import { requireApiKeyAuth } from "$lib/server/api-auth";
 
 const openai = new OpenAI({
   baseURL: "https://ai.hackclub.com",
@@ -23,6 +24,11 @@ const formatThread = (thread: any[]) => {
 };
 
 export const POST: RequestHandler = async ({ request }) => {
+  const authResult = await requireApiKeyAuth(request);
+  if (authResult.error) {
+    return authResult.error;
+  }
+
   try {
     const { thread } = await request.json();
 

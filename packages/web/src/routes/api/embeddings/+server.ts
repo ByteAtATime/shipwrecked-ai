@@ -1,8 +1,14 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
+import { requireApiKeyAuth } from "$lib/server/api-auth";
 import { GEMINI_API_KEY } from "$env/static/private";
 
 export const POST: RequestHandler = async ({ request }) => {
+  const authResult = await requireApiKeyAuth(request);
+  if (authResult.error) {
+    return authResult.error;
+  }
+
   try {
     const { text } = await request.json();
 

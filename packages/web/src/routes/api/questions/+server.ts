@@ -1,10 +1,16 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
+import { requireApiKeyAuth } from "$lib/server/api-auth";
 import { db } from "$lib/server/db";
 import { questionsTable, citationsTable } from "$lib/server/db/schema";
 import { sql, cosineDistance, desc } from "drizzle-orm";
 
 export const POST: RequestHandler = async ({ request }) => {
+  const authResult = await requireApiKeyAuth(request);
+  if (authResult.error) {
+    return authResult.error;
+  }
+
   try {
     const { question, answer, citationIds, embedding } = await request.json();
 
@@ -32,7 +38,12 @@ export const POST: RequestHandler = async ({ request }) => {
   }
 };
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ request, url }) => {
+  const authResult = await requireApiKeyAuth(request);
+  if (authResult.error) {
+    return authResult.error;
+  }
+
   try {
     const queryText = url.searchParams.get("q");
     const queryEmbedding = url.searchParams.get("embedding");

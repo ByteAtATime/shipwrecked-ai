@@ -1,5 +1,6 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
+import { requireApiKeyAuth } from "$lib/server/api-auth";
 import { db } from "$lib/server/db";
 import {
   invitation as invitationTable,
@@ -8,7 +9,12 @@ import {
 } from "$lib/server/db/auth-schema";
 import { eq, and, sql } from "drizzle-orm";
 
-export const GET: RequestHandler = async () => {
+export const GET: RequestHandler = async ({ request }) => {
+  const authResult = await requireApiKeyAuth(request);
+  if (authResult.error) {
+    return authResult.error;
+  }
+
   try {
     const pendingInvitations = await db
       .select({
@@ -45,6 +51,11 @@ export const GET: RequestHandler = async () => {
 };
 
 export const POST: RequestHandler = async ({ request }) => {
+  const authResult = await requireApiKeyAuth(request);
+  if (authResult.error) {
+    return authResult.error;
+  }
+
   try {
     const { invitationIds } = await request.json();
 

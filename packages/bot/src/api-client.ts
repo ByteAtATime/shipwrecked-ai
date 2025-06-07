@@ -1,10 +1,16 @@
 export const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:5173";
+export const API_KEY = process.env.API_KEY;
 
 class APIClient {
   private baseUrl: string;
+  private apiKey: string | undefined;
 
-  constructor(baseUrl: string = API_BASE_URL) {
+  constructor(
+    baseUrl: string = API_BASE_URL,
+    apiKey: string | undefined = API_KEY
+  ) {
     this.baseUrl = baseUrl;
+    this.apiKey = apiKey;
   }
 
   private async request(
@@ -13,9 +19,14 @@ class APIClient {
   ): Promise<any> {
     const url = `${this.baseUrl}${endpoint}`;
 
+    if (!this.apiKey) {
+      throw new Error("API_KEY environment variable is required");
+    }
+
     const response = await fetch(url, {
       headers: {
         "Content-Type": "application/json",
+        "x-api-key": this.apiKey,
         ...options.headers,
       },
       ...options,

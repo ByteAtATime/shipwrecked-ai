@@ -1,10 +1,16 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
+import { requireApiKeyAuth } from "$lib/server/api-auth";
 import { db } from "$lib/server/db";
 import { questionsTable, citationsTable } from "$lib/server/db/schema";
 import { sql, desc, count, or, ilike } from "drizzle-orm";
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ request, url }) => {
+  const authResult = await requireApiKeyAuth(request);
+  if (authResult.error) {
+    return authResult.error;
+  }
+
   try {
     const page = parseInt(url.searchParams.get("page") || "1");
     const limit = parseInt(url.searchParams.get("limit") || "10");

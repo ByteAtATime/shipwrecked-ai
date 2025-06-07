@@ -1,6 +1,7 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import OpenAI from "openai";
+import { requireApiKeyAuth } from "$lib/server/api-auth";
 import { db } from "$lib/server/db";
 import { questionsTable, citationsTable } from "$lib/server/db/schema";
 import { sql, cosineDistance, desc } from "drizzle-orm";
@@ -98,6 +99,11 @@ const searchSimilarQuestions = async (query: string, limit = 3) => {
 };
 
 export const POST: RequestHandler = async ({ request }) => {
+  const authResult = await requireApiKeyAuth(request);
+  if (authResult.error) {
+    return authResult.error;
+  }
+
   try {
     const { question } = await request.json();
 
@@ -105,7 +111,10 @@ export const POST: RequestHandler = async ({ request }) => {
       return json({ error: "Question is required" }, { status: 400 });
     }
 
-    const messages = [
+    const messages: Array<{
+      role: "system" | "user" | "assistant";
+      content: string;
+    }> = [
       {
         role: "system" as const,
         content: `You are an AI assistant that can answer questions based on a knowledge base. You have access to a vector database of question-answer pairs. All of your answers must be directly from the search results; if you are even a little unsure, return a response with type: "no_answer". 
@@ -202,7 +211,12 @@ Example answer format with citation content and username:
           );
 
           if (searchResult.results && searchResult.results.length > 0) {
-            messages.push(responseMessage);
+            if (responseMessage.content) {
+              messages.push({
+                role: responseMessage.role,
+                content: responseMessage.content,
+              });
+            }
             messages.push({
               role: "user" as const,
               content: JSON.stringify(searchResult),
@@ -215,7 +229,12 @@ Example answer format with citation content and username:
             });
           }
         } else {
-          messages.push(responseMessage);
+          if (responseMessage.content) {
+            messages.push({
+              role: responseMessage.role,
+              content: responseMessage.content,
+            });
+          }
           messages.push({
             role: "user" as const,
             content:
@@ -223,7 +242,12 @@ Example answer format with citation content and username:
           });
         }
       } catch (e) {
-        messages.push(responseMessage);
+        if (responseMessage.content) {
+          messages.push({
+            role: responseMessage.role,
+            content: responseMessage.content,
+          });
+        }
         messages.push({
           role: "user" as const,
           content: "You didn't respond with valid JSON. Please try again.",
