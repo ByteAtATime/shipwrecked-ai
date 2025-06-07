@@ -3,7 +3,7 @@ import type { RequestHandler } from "./$types";
 import { requireApiKeyAuth } from "$lib/server/api-auth";
 import { db } from "$lib/server/db";
 import { citationsTable } from "$lib/server/db/schema";
-import { sql } from "drizzle-orm";
+import { sql, eq } from "drizzle-orm";
 
 export const POST: RequestHandler = async ({ request }) => {
   const authResult = await requireApiKeyAuth(request);
@@ -24,6 +24,7 @@ export const POST: RequestHandler = async ({ request }) => {
     const [citationRecord] = await db
       .insert(citationsTable)
       .values({
+        organizationId: authResult.organizationId,
         permalink,
         content,
         timestamp,
@@ -62,7 +63,9 @@ export const GET: RequestHandler = async ({ request, url }) => {
         username: citationsTable.username,
       })
       .from(citationsTable)
-      .where(sql`${citationsTable.id} IN ${idArray}`);
+      .where(
+        sql`${citationsTable.id} IN ${idArray} AND ${citationsTable.organizationId} = ${authResult.organizationId}`
+      );
 
     return json({ citations });
   } catch (error) {

@@ -186,7 +186,7 @@
   function openUpdateDialog(apiKey: ApiKey) {
     selectedApiKey = apiKey;
     updateApiKeyForm = {
-      name: apiKey.name,
+      name: apiKey.name ?? "",
       enabled: apiKey.enabled,
     };
     showUpdateDialog = true;
@@ -201,7 +201,7 @@
     return new Date(date).toLocaleDateString();
   }
 
-  function formatExpiryStatus(expiresAt: string | null) {
+  function formatExpiryStatus(expiresAt: Date | null) {
     if (!expiresAt)
       return { text: "Never", color: "bg-green-100 text-green-800" };
 

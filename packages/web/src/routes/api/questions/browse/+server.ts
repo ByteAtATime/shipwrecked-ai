@@ -1,30 +1,37 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
-import { requireApiKeyAuth } from "$lib/server/api-auth";
 import { db } from "$lib/server/db";
 import { questionsTable, citationsTable } from "$lib/server/db/schema";
-import { sql, desc, count, or, ilike } from "drizzle-orm";
+import { desc, count, or, ilike, eq, and, inArray } from "drizzle-orm";
+import { auth } from "$lib/server/auth";
 
 export const GET: RequestHandler = async ({ request, url }) => {
-  const authResult = await requireApiKeyAuth(request);
-  if (authResult.error) {
-    return authResult.error;
-  }
-
   try {
+    const session = await auth.api.getSession({
+      headers: request.headers,
+    });
+    const organizationId = session?.session.activeOrganizationId;
+
+    if (!organizationId) {
+      return json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const page = parseInt(url.searchParams.get("page") || "1");
     const limit = parseInt(url.searchParams.get("limit") || "10");
     const search = url.searchParams.get("search") || "";
 
     const offset = (page - 1) * limit;
 
-    let whereClause = undefined;
-    if (search) {
-      whereClause = or(
-        ilike(questionsTable.question, `%${search}%`),
-        ilike(questionsTable.answer, `%${search}%`)
-      );
-    }
+    const orgFilter = eq(questionsTable.organizationId, organizationId);
+    const whereClause = search
+      ? and(
+          orgFilter,
+          or(
+            ilike(questionsTable.question, `%${search}%`),
+            ilike(questionsTable.answer, `%${search}%`)
+          )
+        )
+      : orgFilter;
 
     const [totalResult] = await db
       .select({ count: count() })
@@ -61,7 +68,12 @@ export const GET: RequestHandler = async ({ request, url }) => {
               username: citationsTable.username,
             })
             .from(citationsTable)
-            .where(sql`${citationsTable.id} IN ${question.citationIds}`);
+            .where(
+              and(
+                inArray(citationsTable.id, question.citationIds),
+                eq(citationsTable.organizationId, organizationId)
+              )
+            );
 
           for (const citation of citationRecords) {
             citationDetails.push({

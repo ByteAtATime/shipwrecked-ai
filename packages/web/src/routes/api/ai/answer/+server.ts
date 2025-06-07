@@ -4,7 +4,7 @@ import OpenAI from "openai";
 import { requireApiKeyAuth } from "$lib/server/api-auth";
 import { db } from "$lib/server/db";
 import { questionsTable, citationsTable } from "$lib/server/db/schema";
-import { sql, cosineDistance, desc } from "drizzle-orm";
+import { sql, cosineDistance, desc, eq } from "drizzle-orm";
 import { GEMINI_API_KEY } from "$env/static/private";
 
 const openai = new OpenAI({
@@ -32,7 +32,11 @@ const generateEmbedding = async (text: string) => {
   return data.embedding.values;
 };
 
-const searchSimilarQuestions = async (query: string, limit = 3) => {
+const searchSimilarQuestions = async (
+  query: string,
+  organizationId: string,
+  limit = 3
+) => {
   try {
     const queryEmbedding = await generateEmbedding(query);
 
@@ -54,7 +58,9 @@ const searchSimilarQuestions = async (query: string, limit = 3) => {
         similarity,
       })
       .from(questionsTable)
-      .where(sql`${similarity} > 0.5`)
+      .where(
+        sql`${similarity} > 0.5 AND ${questionsTable.organizationId} = ${organizationId}`
+      )
       .orderBy((t) => desc(t.similarity))
       .limit(limit);
 
@@ -72,7 +78,9 @@ const searchSimilarQuestions = async (query: string, limit = 3) => {
               username: citationsTable.username,
             })
             .from(citationsTable)
-            .where(sql`${citationsTable.id} IN ${result.citationIds}`);
+            .where(
+              sql`${citationsTable.id} IN ${result.citationIds} AND ${citationsTable.organizationId} = ${organizationId}`
+            );
 
           for (const citation of citationRecords) {
             citationDetails.push({
@@ -207,6 +215,7 @@ Example answer format with citation content and username:
 
           const searchResult = await searchSimilarQuestions(
             searchQuery,
+            authResult.organizationId,
             searchLimit
           );
 

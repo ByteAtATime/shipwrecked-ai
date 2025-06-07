@@ -54,7 +54,7 @@ Guidelines:
 - Keep responses concise
 - Omit questions when in doubt
 
-Return format:
+Return format (WITH NO OTHER TEXT):
 {
   "qa_pairs": [
     {

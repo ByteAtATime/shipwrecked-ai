@@ -3,7 +3,7 @@ import type { RequestHandler } from "./$types";
 import { requireApiKeyAuth } from "$lib/server/api-auth";
 import { db } from "$lib/server/db";
 import { questionsTable, citationsTable } from "$lib/server/db/schema";
-import { sql, cosineDistance, desc } from "drizzle-orm";
+import { sql, cosineDistance, desc, eq } from "drizzle-orm";
 
 export const POST: RequestHandler = async ({ request }) => {
   const authResult = await requireApiKeyAuth(request);
@@ -24,6 +24,7 @@ export const POST: RequestHandler = async ({ request }) => {
     const result = await db
       .insert(questionsTable)
       .values({
+        organizationId: authResult.organizationId,
         question,
         answer,
         citationIds: citationIds || [],
@@ -72,7 +73,9 @@ export const GET: RequestHandler = async ({ request, url }) => {
         similarity,
       })
       .from(questionsTable)
-      .where(sql`${similarity} > 0.5`)
+      .where(
+        sql`${similarity} > 0.5 AND ${questionsTable.organizationId} = ${authResult.organizationId}`
+      )
       .orderBy((t) => desc(t.similarity))
       .limit(limit);
 
@@ -90,7 +93,9 @@ export const GET: RequestHandler = async ({ request, url }) => {
               username: citationsTable.username,
             })
             .from(citationsTable)
-            .where(sql`${citationsTable.id} IN ${result.citationIds}`);
+            .where(
+              sql`${citationsTable.id} IN ${result.citationIds} AND ${citationsTable.organizationId} = ${authResult.organizationId}`
+            );
 
           for (const citation of citationRecords) {
             citationDetails.push({

@@ -108,9 +108,10 @@ export const auth = betterAuth({
     }),
     apiKey({
       apiKeyHeaders: ["x-api-key"],
+      enableMetadata: true,
       rateLimit: {
         enabled: true,
-        timeWindow: 1000 * 60 * 60 * 24,
+        timeWindow: 1000 * 60 * 60,
         maxRequests: 1000,
       },
     }),

@@ -1,17 +1,21 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
-import { requireApiKeyAuth } from "$lib/server/api-auth";
 import { db } from "$lib/server/db";
 import { questionsTable, citationsTable } from "$lib/server/db/schema";
-import { sql, cosineDistance, desc } from "drizzle-orm";
+import { sql, cosineDistance, desc, eq, and, inArray } from "drizzle-orm";
+import { auth } from "$lib/server/auth";
 
 export const POST: RequestHandler = async ({ request }) => {
-  const authResult = await requireApiKeyAuth(request);
-  if (authResult.error) {
-    return authResult.error;
-  }
-
   try {
+    const session = await auth.api.getSession({
+      headers: request.headers,
+    });
+    const organizationId = session?.session.activeOrganizationId;
+
+    if (!organizationId) {
+      return json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { embedding, limit = 3 } = await request.json();
 
     if (!embedding) {
@@ -32,7 +36,9 @@ export const POST: RequestHandler = async ({ request }) => {
         similarity,
       })
       .from(questionsTable)
-      .where(sql`${similarity} > 0.5`)
+      .where(
+        sql`${similarity} > 0.5 AND ${questionsTable.organizationId} = ${organizationId}`
+      )
       .orderBy((t) => desc(t.similarity))
       .limit(limit);
 
@@ -50,7 +56,12 @@ export const POST: RequestHandler = async ({ request }) => {
               username: citationsTable.username,
             })
             .from(citationsTable)
-            .where(sql`${citationsTable.id} IN ${result.citationIds}`);
+            .where(
+              and(
+                inArray(citationsTable.id, result.citationIds),
+                eq(citationsTable.organizationId, organizationId)
+              )
+            );
 
           for (const citation of citationRecords) {
             citationDetails.push({

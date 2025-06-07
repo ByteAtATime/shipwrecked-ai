@@ -3,11 +3,9 @@ import { auth } from "$lib/server/auth";
 
 export async function requireApiKeyAuth(request: Request) {
   try {
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    const apiKey = request.headers.get("x-api-key");
 
-    if (!session || !session.user) {
+    if (!apiKey) {
       return {
         error: json(
           { error: "Unauthorized - Invalid or missing API key" },
@@ -15,13 +13,33 @@ export async function requireApiKeyAuth(request: Request) {
         ),
         session: null,
         user: null,
+        organizationId: null,
+      };
+    }
+
+    const { valid, error, key } = await auth.api.verifyApiKey({
+      body: {
+        key: apiKey,
+      },
+    });
+
+    const organizationId = key?.metadata?.organizationId;
+
+    if (!organizationId) {
+      return {
+        error: json(
+          { error: "Unauthorized - No organization associated with API key" },
+          { status: 401 }
+        ),
+        session: null,
+        user: null,
+        organizationId: null,
       };
     }
 
     return {
       error: null,
-      session,
-      user: session.user,
+      organizationId,
     };
   } catch (error) {
     console.error("API key authentication error:", error);
@@ -32,6 +50,7 @@ export async function requireApiKeyAuth(request: Request) {
       ),
       session: null,
       user: null,
+      organizationId: null,
     };
   }
 }

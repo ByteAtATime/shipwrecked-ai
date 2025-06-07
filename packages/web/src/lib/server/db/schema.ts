@@ -12,6 +12,7 @@ import {
 
 export const citationsTable = pgTable("citations", {
   id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: text("organization_id").notNull(),
   permalink: text("permalink").notNull(),
   content: text("content").notNull(),
   timestamp: text("timestamp").notNull(),
@@ -22,6 +23,7 @@ export const questionsTable = pgTable(
   "questions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: text("organization_id").notNull(),
     embedding: halfvec("embedding", { dimensions: 3072 }),
     question: text("question").notNull(),
     answer: text("answer").notNull(),
