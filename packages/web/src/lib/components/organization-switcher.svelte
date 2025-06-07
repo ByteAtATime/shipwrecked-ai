@@ -24,17 +24,12 @@
   let open = $state(false);
   let invitations: Invitation[] = $state([]);
 
-  const roleIcons = {
-    owner: Crown,
-    admin: Shield,
-    member: User,
-  };
-
   const orgs = authClient.useListOrganizations();
 
   async function switchOrganization(orgId: string) {
     try {
       await authClient.organization.setActive({ organizationId: orgId });
+      await invalidateAll();
       toast.success("Switched organization");
       open = false;
     } catch (error) {

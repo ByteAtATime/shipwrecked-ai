@@ -37,6 +37,47 @@
   let inviteEmail = $state("");
   let inviteRole: "member" | "admin" | "owner" = $state("member");
 
+  const currentUserMember = $derived(
+    members.find((member) => member.userId === $session.data?.user?.id)
+  );
+  const currentUserRole = $derived(currentUserMember?.role);
+
+  const canInvite = $derived(
+    currentUserRole === "owner" ||
+      currentUserRole === "admin" ||
+      currentUserRole === "member"
+  );
+
+  const canManageMembers = $derived(
+    currentUserRole === "owner" || currentUserRole === "admin"
+  );
+
+  const canRemoveMember = (memberRole: string, isOwner: boolean) => {
+    if (isOwner) return false;
+    if (currentUserRole === "owner") return true;
+    if (currentUserRole === "admin" && memberRole !== "owner") return true;
+    return false;
+  };
+
+  const canChangeRole = (
+    memberRole: string,
+    targetRole: string,
+    isOwner: boolean
+  ) => {
+    if (isOwner) return false;
+    if (currentUserRole === "owner") {
+      return targetRole !== "owner" || memberRole !== "owner";
+    }
+    if (currentUserRole === "admin") {
+      return memberRole !== "owner" && targetRole !== "owner";
+    }
+    return false;
+  };
+
+  const canCancelInvitation = $derived(
+    currentUserRole === "owner" || currentUserRole === "admin"
+  );
+
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -162,10 +203,12 @@
           Manage your organization members and invitations
         </p>
       </div>
-      <Button onclick={() => (showInviteDialog = true)} class="gap-2">
-        <UserPlus class="h-4 w-4" />
-        Invite Member
-      </Button>
+      {#if canInvite}
+        <Button onclick={() => (showInviteDialog = true)} class="gap-2">
+          <UserPlus class="h-4 w-4" />
+          Invite Member
+        </Button>
+      {/if}
     </div>
   </div>
 
@@ -183,28 +226,33 @@
     </div>
   {:else}
     <div class="grid gap-6">
-      <Card.Root>
-        <Card.Header>
-          <Card.Title>Admin Tools</Card.Title>
-          <Card.Description>
-            Quick access to administrative functions
-          </Card.Description>
-        </Card.Header>
-        <Card.Content>
-          <div class="flex flex-wrap gap-4">
-            <Button href="/admin/organization" variant="outline" class="gap-2">
-              <Settings class="h-4 w-4" />
-              Organization Settings
-            </Button>
-            <Button href="/admin/api-keys" variant="outline" class="gap-2">
-              <Key class="h-4 w-4" />
-              API Keys
-            </Button>
-          </div>
-        </Card.Content>
-      </Card.Root>
+      {#if canManageMembers}
+        <Card.Root>
+          <Card.Header>
+            <Card.Title>Admin Tools</Card.Title>
+            <Card.Description>
+              Quick access to administrative functions
+            </Card.Description>
+          </Card.Header>
+          <Card.Content>
+            <div class="flex flex-wrap gap-4">
+              <Button
+                href="/admin/organization"
+                variant="outline"
+                class="gap-2"
+              >
+                <Settings class="h-4 w-4" />
+                Organization Settings
+              </Button>
+              <Button href="/admin/api-keys" variant="outline" class="gap-2">
+                <Key class="h-4 w-4" />
+                API Keys
+              </Button>
+            </div>
+          </Card.Content>
+        </Card.Root>
+      {/if}
 
-      <!-- Organization Overview -->
       <Card.Root>
         <Card.Header>
           <Card.Title class="flex items-center gap-2">
@@ -218,7 +266,6 @@
         </Card.Header>
       </Card.Root>
 
-      <!-- Members Table -->
       <Card.Root>
         <Card.Header>
           <Card.Title>Active Members ({members.length})</Card.Title>
@@ -275,46 +322,72 @@
                       {new Date(member.createdAt).toLocaleDateString()}
                     </Table.Cell>
                     <Table.Cell class="text-right">
-                      {#if member.userId !== $session.data?.user?.id}
-                        <DropdownMenu.Root>
-                          <DropdownMenu.Trigger>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              class="h-8 w-8 p-0"
-                            >
-                              <MoreVertical class="h-4 w-4" />
-                            </Button>
-                          </DropdownMenu.Trigger>
-                          <DropdownMenu.Content align="end">
-                            <DropdownMenu.Label
-                              >Manage Member</DropdownMenu.Label
-                            >
-                            <DropdownMenu.Separator />
-                            {#each roles as role}
-                              {#if role.value !== member.role}
+                      {#if member.userId === $session.data?.user?.id}
+                        <Badge variant="outline">You</Badge>
+                      {:else if canManageMembers}
+                        {@const hasRoleActions = roles.some(
+                          (role) =>
+                            role.value !== member.role &&
+                            canChangeRole(
+                              member.role,
+                              role.value,
+                              member.role === "owner"
+                            )
+                        )}
+                        {@const canRemove = canRemoveMember(
+                          member.role,
+                          member.role === "owner"
+                        )}
+
+                        {#if hasRoleActions || canRemove}
+                          <DropdownMenu.Root>
+                            <DropdownMenu.Trigger>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                class="h-8 w-8 p-0"
+                              >
+                                <MoreVertical class="h-4 w-4" />
+                              </Button>
+                            </DropdownMenu.Trigger>
+                            <DropdownMenu.Content align="end">
+                              <DropdownMenu.Label
+                                >Manage Member</DropdownMenu.Label
+                              >
+                              <DropdownMenu.Separator />
+                              {#each roles as role}
+                                {#if role.value !== member.role && canChangeRole(member.role, role.value, member.role === "owner")}
+                                  <DropdownMenu.Item
+                                    onclick={() =>
+                                      updateMemberRole(member.id, role.value)}
+                                    class="gap-2"
+                                  >
+                                    <role.icon class="h-4 w-4" />
+                                    Make {role.label}
+                                  </DropdownMenu.Item>
+                                {/if}
+                              {/each}
+                              {#if canRemove}
+                                <DropdownMenu.Separator />
                                 <DropdownMenu.Item
-                                  onclick={() =>
-                                    updateMemberRole(member.id, role.value)}
-                                  class="gap-2"
+                                  onclick={() => removeMember(member.id)}
+                                  class="gap-2 text-destructive focus:text-destructive"
                                 >
-                                  <role.icon class="h-4 w-4" />
-                                  Make {role.label}
+                                  <Trash2 class="h-4 w-4" />
+                                  Remove Member
                                 </DropdownMenu.Item>
                               {/if}
-                            {/each}
-                            <DropdownMenu.Separator />
-                            <DropdownMenu.Item
-                              onclick={() => removeMember(member.id)}
-                              class="gap-2 text-destructive focus:text-destructive"
-                            >
-                              <Trash2 class="h-4 w-4" />
-                              Remove Member
-                            </DropdownMenu.Item>
-                          </DropdownMenu.Content>
-                        </DropdownMenu.Root>
+                            </DropdownMenu.Content>
+                          </DropdownMenu.Root>
+                        {:else}
+                          <span class="text-sm text-muted-foreground"
+                            >No actions</span
+                          >
+                        {/if}
                       {:else}
-                        <Badge variant="outline">You</Badge>
+                        <span class="text-sm text-muted-foreground"
+                          >No actions</span
+                        >
                       {/if}
                     </Table.Cell>
                   </Table.Row>
@@ -325,8 +398,7 @@
         </Card.Content>
       </Card.Root>
 
-      <!-- Pending Invitations -->
-      {#if invitations.length > 0}
+      {#if invitations.length > 0 && canCancelInvitation}
         <Card.Root>
           <Card.Header>
             <Card.Title>Pending Invitations ({invitations.length})</Card.Title>
@@ -395,69 +467,75 @@
   {/if}
 </div>
 
-<Dialog.Root bind:open={showInviteDialog}>
-  <Dialog.Content class="sm:max-w-md">
-    <Dialog.Header>
-      <Dialog.Title class="flex items-center gap-2">
-        <UserPlus class="h-5 w-5" />
-        Invite New Member
-      </Dialog.Title>
-      <Dialog.Description>
-        Send an invitation to join your organization.
-      </Dialog.Description>
-    </Dialog.Header>
+{#if canInvite}
+  <Dialog.Root bind:open={showInviteDialog}>
+    <Dialog.Content class="sm:max-w-md">
+      <Dialog.Header>
+        <Dialog.Title class="flex items-center gap-2">
+          <UserPlus class="h-5 w-5" />
+          Invite New Member
+        </Dialog.Title>
+        <Dialog.Description>
+          Send an invitation to join your organization.
+        </Dialog.Description>
+      </Dialog.Header>
 
-    <div class="space-y-4 py-4">
-      <div class="space-y-2">
-        <Label for="email">Email Address</Label>
-        <Input
-          id="email"
-          type="email"
-          placeholder="member@example.com"
-          bind:value={inviteEmail}
-          class="w-full"
-        />
-      </div>
+      <div class="space-y-4 py-4">
+        <div class="space-y-2">
+          <Label for="email">Email Address</Label>
+          <Input
+            id="email"
+            type="email"
+            placeholder="member@example.com"
+            bind:value={inviteEmail}
+            class="w-full"
+          />
+        </div>
 
-      <div class="space-y-2">
-        <Label for="role">Role</Label>
-        <Select.Root bind:value={inviteRole} type="single">
-          <Select.Trigger class="w-full">
-            {@const role = roles.find((r) => r.value === inviteRole)}
-            {#if role}
-              <span class="flex items-center gap-2">
-                <role.icon class="h-4 w-4" />
-                {role.label}
-              </span>
-            {:else}
-              Select a role
-            {/if}
-          </Select.Trigger>
-          <Select.Content>
-            {#each roles.filter((r) => r.value !== "owner") as role}
-              <Select.Item value={role.value} class="gap-2">
-                <role.icon class="h-4 w-4" />
-                <div>
-                  <div class="font-medium">{role.label}</div>
-                  <div class="text-xs text-muted-foreground">
-                    {role.description}
+        <div class="space-y-2">
+          <Label for="role">Role</Label>
+          <Select.Root bind:value={inviteRole} type="single">
+            <Select.Trigger class="w-full">
+              {@const role = roles.find((r) => r.value === inviteRole)}
+              {#if role}
+                <span class="flex items-center gap-2">
+                  <role.icon class="h-4 w-4" />
+                  {role.label}
+                </span>
+              {:else}
+                Select a role
+              {/if}
+            </Select.Trigger>
+            <Select.Content>
+              {#each roles.filter((r) => {
+                if (currentUserRole === "owner") return r.value !== "owner";
+                if (currentUserRole === "admin") return r.value === "member";
+                return r.value === "member";
+              }) as role}
+                <Select.Item value={role.value} class="gap-2">
+                  <role.icon class="h-4 w-4" />
+                  <div>
+                    <div class="font-medium">{role.label}</div>
+                    <div class="text-xs text-muted-foreground">
+                      {role.description}
+                    </div>
                   </div>
-                </div>
-              </Select.Item>
-            {/each}
-          </Select.Content>
-        </Select.Root>
+                </Select.Item>
+              {/each}
+            </Select.Content>
+          </Select.Root>
+        </div>
       </div>
-    </div>
 
-    <Dialog.Footer>
-      <Button variant="outline" onclick={() => (showInviteDialog = false)}>
-        Cancel
-      </Button>
-      <Button onclick={inviteMember} class="gap-2">
-        <Mail class="h-4 w-4" />
-        Send Invitation
-      </Button>
-    </Dialog.Footer>
-  </Dialog.Content>
-</Dialog.Root>
+      <Dialog.Footer>
+        <Button variant="outline" onclick={() => (showInviteDialog = false)}>
+          Cancel
+        </Button>
+        <Button onclick={inviteMember} class="gap-2">
+          <Mail class="h-4 w-4" />
+          Send Invitation
+        </Button>
+      </Dialog.Footer>
+    </Dialog.Content>
+  </Dialog.Root>
+{/if}
